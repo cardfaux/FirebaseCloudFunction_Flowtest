@@ -15,6 +15,7 @@
   "dependencies": {
     "firebase-admin": "^11.5.0",
     "firebase-functions": "^4.2.0",
+    "moment": "^2.29.4",
     "node-fetch": "^2.6.9"
   },
   "devDependencies": {
