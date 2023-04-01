@@ -10,13 +10,15 @@ var firestore = firebase.firestore();
 // https://firebase.google.com/docs/functions/get-started
 
 exports.helloWorld = functions.https.onRequest(async (request, response) => {
+  let n = new Date();
+  let onlyDateCurrent = moment(n.toISOString()).format('YYYY-MM-DD');
   //console.log('REQUEST', request);
   //console.log('RESPONSE', response);
 
   //const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${request.query.name}`);
   //console.log(request.query.name);
   const res = await fetch(
-    `https://api.lightspeedapp.com/API/V3/Account/162106/Sale.json?timeStamp=%3E,2023-03-26T00:00:00-0400&employeeID=${request.query.employeeID}&sort=-timeStamp&load_relations=all`,
+    `${process.env.BASE_URL}/${process.env.ACCOUNT_ID}/Sale.json?timeStamp=%3E,${onlyDateCurrent}T00:00:00-0400&employeeID=${employee_id}&sort=-timeStamp&load_relations=all`,
     {
       method: 'GET',
       headers: {
@@ -25,26 +27,27 @@ exports.helloWorld = functions.https.onRequest(async (request, response) => {
       },
     }
   );
-  //functions.logger.info(res, { structuredData: true });
-  //console.log(res);
-  // if (!res.Sale) {
-  //   console.log('No sales');
-  //   response.json({ Sale: [{ total: '0.00' }] });
-  // }
+
   const responseData = await res.json();
 
   if (!responseData.Sale) {
-    console.log('No sales');
-    response.json({ Sale: [{ total: '0.00' }, { total: '00.00' }, { total: '00.00' }] });
+    try {
+      console.log('No sales');
+      response.json({ Sale: [{ total: '0.00' }, { total: '00.00' }, { total: '00.00' }] });
+    } catch (error) {
+      console.log('ERROR FROM !responseData.Sale', error);
+      response.json(error);
+    }
   }
-  //console.log(responseData);
-  //response.send(responseData);
 
-  functions.logger.info('Hello logs!', { structuredData: true });
-  //response.send('Hello from Firebase!');
   if (responseData.Sale) {
-    console.log('Sales');
-    response.json(responseData);
+    try {
+      console.log('Sales');
+      response.json(responseData);
+    } catch (error) {
+      console.log('ERROR FROM responseData.Sale', error);
+      response.json(error);
+    }
   }
   //response.json(responseData);
 });
@@ -52,16 +55,11 @@ exports.helloWorld = functions.https.onRequest(async (request, response) => {
 exports.updateFirebaseUsers = functions.pubsub.schedule('*/30 * * * *').onRun(async (context) => {
   //! this is where i want it to work start
   let n = new Date();
-  //n.toISOString();
   let onlyDateCurrent = moment(n.toISOString()).format('YYYY-MM-DD');
-  // let onlyHoursCurrent = moment(n.toISOString()).format('HH:mm:ss');
 
-  // let onlyDateMinus30 = moment(n.toISOString()).subtract(30, 'minutes').format('YYYY-MM-DD');
-  // let onlyHoursMinus30 = moment(n.toISOString()).subtract(30, 'minutes').format('HH:mm:ss');
   const users = firestore.collection('users');
   const user = await users.where('employee_role_name', '==', 'Associate').get();
-  //const salesTotal = 10.92 + `${Date.now()}`;
-  //const salesTotal = `${salesTotalsSummed.toString()}` + `${Date.now()}`;
+
   user.forEach(async (snapshot) => {
     const { employee_id } = snapshot.data();
     //! This is the where the access token gets updated.
@@ -94,10 +92,27 @@ exports.updateFirebaseUsers = functions.pubsub.schedule('*/30 * * * *').onRun(as
     //! if no Sale data is returned, return null.
     if (!salesData.Sale) {
       try {
-        console.log('IN THE !salesData.Sale BLOCK', salesData);
+        const salesFakeData = { Sale: [{ total: '00.00' }, { total: '00.00' }, { total: '00.00' }] };
+        const salesTotals = salesFakeData.Sale.map((sale) => parseFloat(sale.total));
+        const totalsArray = [];
+        salesTotals.forEach((total) => totalsArray.push(total));
+        const salesTotalsSummed = totalsArray.reduce((total, sale) => total + sale, 0);
+        const salesTotalTicketAverage = salesTotalsSummed / salesTotals.length;
+        const salesTotalSummedRoundedTenth = salesTotalsSummed.toFixed(2);
+        const salesTotalSummedAsADouble = parseFloat(salesTotalSummedRoundedTenth);
+        const salesTotalTicketAverageRoundedTenth = salesTotalTicketAverage.toFixed(2);
+        snapshot.ref.update({ sales_total: salesTotalSummedRoundedTenth });
+        snapshot.ref.update({ sales_total_ticket_average: salesTotalTicketAverageRoundedTenth });
+        snapshot.ref.update({ total_sort: salesTotalSummedAsADouble });
+        console.log('salesTotalsSummed IN THE !salesData.Sale', salesTotalsSummed);
+        console.log(
+          'IN THE !salesData.Sale BLOCK',
+          `${salesTotalsSummed} => ${salesTotalSummedAsADouble}`,
+          `employee_id: ${employee_id}`
+        );
         return null;
       } catch (error) {
-        console.log('ERROR FROM THE !salesData.Sale BLOCK', error);
+        console.log('ERROR FROM THE !salesData.Sale BLOCK', error, `employee_id: ${employee_id}`);
         return null;
       }
     } else if (salesData.Sale) {
@@ -107,57 +122,30 @@ exports.updateFirebaseUsers = functions.pubsub.schedule('*/30 * * * *').onRun(as
         salesTotals.forEach((total) => totalsArray.push(total));
         const salesTotalsSummed = totalsArray.reduce((total, sale) => total + sale, 0);
         const salesTotalTicketAverage = salesTotalsSummed / salesTotals.length;
-        console.log('salesTotalsSummed', salesTotalsSummed);
-        functions.logger.info('salesTotalsSummed', salesTotalsSummed, { structuredData: true });
         const salesTotalSummedRoundedTenth = salesTotalsSummed.toFixed(2);
         const salesTotalSummedAsADouble = parseFloat(salesTotalSummedRoundedTenth);
         const salesTotalTicketAverageRoundedTenth = salesTotalTicketAverage.toFixed(2);
         snapshot.ref.update({ sales_total: salesTotalSummedRoundedTenth });
         snapshot.ref.update({ sales_total_ticket_average: salesTotalTicketAverageRoundedTenth });
         snapshot.ref.update({ total_sort: salesTotalSummedAsADouble });
-        console.log('IN THE ELSE IF BLOCK, SUMMED-DOUBLE', salesTotalSummedAsADouble);
+        console.log('salesTotalsSummed', salesTotalsSummed);
+        console.log(
+          'IN THE ELSE IF BLOCK, SUMMED-DOUBLE',
+          `${salesTotalsSummed} => ${salesTotalSummedAsADouble}`,
+          `employee_id: ${employee_id}`
+        );
         return null;
       } catch (error) {
-        console.log('ERROR FROM THE ELSE IF BLOCK', error);
+        console.log('ERROR FROM THE ELSE IF BLOCK', error, `employee_id: ${employee_id}`);
         return null;
       }
     } else {
-      console.log('FROM THE ELSE BLOCK');
+      console.log('FROM THE ELSE BLOCK', `employee_id: ${employee_id}`);
       return null;
     }
-    // if (salesData.Sale) {
-    //   const salesTotals = salesData.Sale.map((sale) => parseFloat(sale.total));
-    //   const totalsArray = [];
-    //   salesTotals.forEach((total) => totalsArray.push(total));
-    //   const salesTotalsSummed = totalsArray.reduce((total, sale) => total + sale, 0);
-    //   const salesTotalTicketAverage = salesTotalsSummed / salesTotals.length;
-    //   console.log('salesTotalsSummed', salesTotalsSummed);
-    //   functions.logger.info('salesTotalsSummed', salesTotalsSummed, { structuredData: true });
-    //   const salesTotalSummedRoundedTenth = salesTotalsSummed.toFixed(2);
-    //   const salesTotalSummedAsADouble = parseFloat(salesTotalSummedRoundedTenth);
-    //   const salesTotalTicketAverageRoundedTenth = salesTotalTicketAverage.toFixed(2);
-    //   // console.log('OPEN SALESDATA', salesData);
-    //   // console.log('SALES TOTAL DOUBLE', salesTotalSummedAsADouble);
-    //   // functions.logger.info('OPEN SALESDATA', salesData, { structuredData: true });
-    //   // functions.logger.info('SALES TOTAL DOUBLE', salesTotalSummedAsADouble, { structuredData: true });
-    //   snapshot.ref.update({ sales_total: salesTotalSummedRoundedTenth });
-    //   snapshot.ref.update({ sales_total_ticket_average: salesTotalTicketAverageRoundedTenth });
-    //   snapshot.ref.update({ total_sort: salesTotalSummedAsADouble });
-    // }
-    //snapshot.ref.update({ sales_total: salesTotalsSummed });
-    //snapshot.ref.update({ sales_updated_employee_id: employee_id });
   });
   console.log('FROM THE END OF THE FUNCTION OUTSIDE THE USERS COLLECTION LOOP');
   return null;
-  //! this is where i want it work end
-  // const users = firestore.collection('users');
-  // const user = await users.where('employee_id', '==', 469).get();
-  // //const salesTotal = 10.92 + `${Date.now()}`;
-  // const salesTotal = `${salesTotalsSummed}` + `${Date.now()}`;
-  // user.forEach((snapshot) => {
-  //   snapshot.ref.update({ sales_total: salesTotal });
-  // });
-  // return null;
 });
 
 //Callable function.
