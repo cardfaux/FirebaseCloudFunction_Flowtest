@@ -1,6 +1,6 @@
 const functions = require('firebase-functions');
 const fetch = require('node-fetch');
-const moment = require('moment');
+const moment = require('moment-timezone');
 const firebase = require('firebase-admin');
 firebase.initializeApp();
 var firestore = firebase.firestore();
@@ -11,12 +11,8 @@ var firestore = firebase.firestore();
 
 exports.helloWorld = functions.https.onRequest(async (request, response) => {
   let n = new Date();
-  let onlyDateCurrent = moment(n.toISOString()).format('YYYY-MM-DD');
-  //console.log('REQUEST', request);
-  //console.log('RESPONSE', response);
+  let onlyDateCurrent = moment(n.toISOString()).tz('America/New_York').format('YYYY-MM-DD');
 
-  //const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${request.query.name}`);
-  //console.log(request.query.name);
   const res = await fetch(
     `${process.env.BASE_URL}/${process.env.ACCOUNT_ID}/Sale.json?timeStamp=%3E,${onlyDateCurrent}T00:00:00-0400&employeeID=${employee_id}&sort=-timeStamp&load_relations=all`,
     {
@@ -52,10 +48,11 @@ exports.helloWorld = functions.https.onRequest(async (request, response) => {
   //response.json(responseData);
 });
 
-exports.updateFirebaseUsers = functions.pubsub.schedule('*/30 * * * *').onRun(async (context) => {
+exports.updateFirebaseUsers = functions.pubsub.schedule('*/60 * * * *').onRun(async (context) => {
   //! this is where i want it to work start
   let n = new Date();
-  let onlyDateCurrent = moment(n.toISOString()).format('YYYY-MM-DD');
+  let onlyDateCurrent = moment(n.toISOString()).tz('America/New_York').format('YYYY-MM-DD');
+  console.log('THE DATE', onlyDateCurrent);
 
   const users = firestore.collection('users');
   const user = await users.where('employee_role_name', '==', 'Associate').get();
