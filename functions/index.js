@@ -190,6 +190,7 @@ const checkDatabaseToken = async function (req, res, next) {
       console.log('ERROR FROM THE UPDATE TOKEN BLOCK', error);
     }
   }
+  console.log('THE ACCESS TOKEN IS STILL VALID');
   next();
 };
 expressApp.use(checkDatabaseToken);
