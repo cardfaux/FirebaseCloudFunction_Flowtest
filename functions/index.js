@@ -184,14 +184,19 @@ const checkDatabaseToken = async function (req, res, next) {
       const selectedToken = await tokenQuerySnapshot.doc('OpLObUEkHj1VHbZWShpZ').get();
       const updateIsComplete = await selectedToken.ref.update({ token: newUpdatedToken }).then(() => {
         console.log('updateIsCompleteInTheThenBlock');
-        next();
+        return next();
       });
     } catch (error) {
       console.log('ERROR FROM THE UPDATE TOKEN BLOCK', error);
     }
+  } else if (responseData.Sale) {
+    console.log('THE ACCESS TOKEN IS STILL VALID');
+    return next();
+  } else {
+    console.log('ERROR FROM THE CHECK TOKEN BLOCK', responseData);
   }
-  console.log('THE ACCESS TOKEN IS STILL VALID');
-  next();
+  // console.log('THE ACCESS TOKEN IS STILL VALID');
+  // return next();
 };
 expressApp.use(checkDatabaseToken);
 expressApp.use(cors({ origin: true }));
