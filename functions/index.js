@@ -1,12 +1,14 @@
 const functions = require('firebase-functions');
-const cors = require('cors');
-const express = require('express');
+// const cors = require('cors');
+// const express = require('express');
 const fetch = require('node-fetch');
 const moment = require('moment-timezone');
 const firebase = require('firebase-admin');
 firebase.initializeApp();
-var firestore = firebase.firestore();
+//var firestore = firebase.firestore();
 //const { fetch } = require('node-fetch');
+const monthToDateSales = require('./monthToDateSales');
+const updateFirebaseUsers = require('./updateFirebaseUsers');
 
 // Create and deploy your first functions
 // https://firebase.google.com/docs/functions/get-started
@@ -50,180 +52,110 @@ exports.helloWorld = functions.https.onRequest(async (request, response) => {
   //response.json(responseData);
 });
 
-exports.updateFirebaseUsers = functions.pubsub
-  .schedule('0 * * * *')
-  .timeZone('America/New_York')
-  .onRun(async (context) => {
-    //! this is where i want it to work start
-    let n = new Date();
-    let onlyDateCurrent = moment(n.toISOString()).tz('America/New_York').format('YYYY-MM-DD');
+// exports.updateFirebaseUsers = functions.pubsub
+//   .schedule('0 * * * *')
+//   .timeZone('America/New_York')
+//   .onRun(async (context) => {
+//     //! this is where i want it to work start
+//     let n = new Date();
+//     let onlyDateCurrent = moment(n.toISOString()).tz('America/New_York').format('YYYY-MM-DD');
 
-    const users = firestore.collection('users');
-    const user = await users.where('employee_role_name', '==', 'Associate').get();
+//     const users = firestore.collection('users');
+//     const user = await users.where('employee_role_name', '==', 'Associate').get();
 
-    user.forEach(async (snapshot) => {
-      const { employee_id } = snapshot.data();
-      //! This is the where the access token gets updated.
-      const updateTokenResponse = await fetch('https://cloud.lightspeedapp.com/oauth/access_token.php', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          client_id: process.env.CLIENT_ID,
-          client_secret: process.env.CLIENT_SECRET,
-          refresh_token: process.env.REFRESH_TOKEN,
-          grant_type: 'refresh_token',
-        }),
-      });
-      const updateTokenData = await updateTokenResponse.json();
-      const newUpdatedToken = updateTokenData.access_token;
-      //! This where the API call is made to get the total sales.
-      const salesDataResponse = await fetch(
-        `${process.env.BASE_URL}/${process.env.ACCOUNT_ID}/Sale.json?timeStamp=%3E,${onlyDateCurrent}T00:00:00-0400&employeeID=${employee_id}&sort=-timeStamp&load_relations=all`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${newUpdatedToken}`,
-          },
-        }
-      );
-      const salesData = await salesDataResponse.json();
-      //! if no Sale data is returned, return null.
-      if (!salesData.Sale) {
-        try {
-          const salesFakeData = { Sale: [{ total: '00.00' }, { total: '00.00' }, { total: '00.00' }] };
-          const salesTotals = salesFakeData.Sale.map((sale) => parseFloat(sale.total));
-          const totalsArray = [];
-          salesTotals.forEach((total) => totalsArray.push(total));
-          const salesTotalsSummed = totalsArray.reduce((total, sale) => total + sale, 0);
-          const salesTotalTicketAverage = salesTotalsSummed / salesTotals.length;
-          const salesTotalSummedRoundedTenth = salesTotalsSummed.toFixed(2);
-          const salesTotalSummedAsADouble = parseFloat(salesTotalSummedRoundedTenth);
-          const salesTotalTicketAverageRoundedTenth = salesTotalTicketAverage.toFixed(2);
-          snapshot.ref.update({ sales_total: salesTotalSummedRoundedTenth });
-          snapshot.ref.update({ sales_total_ticket_average: salesTotalTicketAverageRoundedTenth });
-          snapshot.ref.update({ total_sort: salesTotalSummedAsADouble });
-          console.log('salesTotalsSummed IN THE !salesData.Sale', salesTotalsSummed);
-          console.log(
-            'IN THE !salesData.Sale BLOCK',
-            `${salesTotalsSummed} => ${salesTotalSummedAsADouble}`,
-            `employee_id: ${employee_id}`
-          );
-          return null;
-        } catch (error) {
-          console.log('ERROR FROM THE !salesData.Sale BLOCK', error, `employee_id: ${employee_id}`);
-          return null;
-        }
-      } else if (salesData.Sale) {
-        try {
-          const salesTotals = salesData.Sale.map((sale) => parseFloat(sale.total));
-          const totalsArray = [];
-          salesTotals.forEach((total) => totalsArray.push(total));
-          const salesTotalsSummed = totalsArray.reduce((total, sale) => total + sale, 0);
-          const salesTotalTicketAverage = salesTotalsSummed / salesTotals.length;
-          const salesTotalSummedRoundedTenth = salesTotalsSummed.toFixed(2);
-          const salesTotalSummedAsADouble = parseFloat(salesTotalSummedRoundedTenth);
-          const salesTotalTicketAverageRoundedTenth = salesTotalTicketAverage.toFixed(2);
-          snapshot.ref.update({ sales_total: salesTotalSummedRoundedTenth });
-          snapshot.ref.update({ sales_total_ticket_average: salesTotalTicketAverageRoundedTenth });
-          snapshot.ref.update({ total_sort: salesTotalSummedAsADouble });
-          console.log('salesTotalsSummed', salesTotalsSummed);
-          console.log(
-            'IN THE ELSE IF BLOCK, SUMMED-DOUBLE',
-            `${salesTotalsSummed} => ${salesTotalSummedAsADouble}`,
-            `employee_id: ${employee_id}`
-          );
-          return null;
-        } catch (error) {
-          console.log('ERROR FROM THE ELSE IF BLOCK', error, `employee_id: ${employee_id}`);
-          return null;
-        }
-      } else {
-        console.log('FROM THE ELSE BLOCK', `employee_id: ${employee_id}`);
-        return null;
-      }
-    });
-    console.log('FROM THE END OF THE FUNCTION OUTSIDE THE USERS COLLECTION LOOP');
-    return null;
-  });
+//     user.forEach(async (snapshot) => {
+//       const { employee_id } = snapshot.data();
+//       //! This is the where the access token gets updated.
+//       const updateTokenResponse = await fetch('https://cloud.lightspeedapp.com/oauth/access_token.php', {
+//         method: 'POST',
+//         headers: {
+//           'Content-Type': 'application/json',
+//         },
+//         body: JSON.stringify({
+//           client_id: process.env.CLIENT_ID,
+//           client_secret: process.env.CLIENT_SECRET,
+//           refresh_token: process.env.REFRESH_TOKEN,
+//           grant_type: 'refresh_token',
+//         }),
+//       });
+//       const updateTokenData = await updateTokenResponse.json();
+//       const newUpdatedToken = updateTokenData.access_token;
+//       //! This where the API call is made to get the total sales.
+//       const salesDataResponse = await fetch(
+//         `${process.env.BASE_URL}/${process.env.ACCOUNT_ID}/Sale.json?timeStamp=%3E,${onlyDateCurrent}T00:00:00-0400&employeeID=${employee_id}&sort=-timeStamp&load_relations=all`,
+//         {
+//           method: 'GET',
+//           headers: {
+//             'Content-Type': 'application/json',
+//             Authorization: `Bearer ${newUpdatedToken}`,
+//           },
+//         }
+//       );
+//       const salesData = await salesDataResponse.json();
+//       //! if no Sale data is returned, return null.
+//       if (!salesData.Sale) {
+//         try {
+//           const salesFakeData = { Sale: [{ total: '00.00' }, { total: '00.00' }, { total: '00.00' }] };
+//           const salesTotals = salesFakeData.Sale.map((sale) => parseFloat(sale.total));
+//           const totalsArray = [];
+//           salesTotals.forEach((total) => totalsArray.push(total));
+//           const salesTotalsSummed = totalsArray.reduce((total, sale) => total + sale, 0);
+//           const salesTotalTicketAverage = salesTotalsSummed / salesTotals.length;
+//           const salesTotalSummedRoundedTenth = salesTotalsSummed.toFixed(2);
+//           const salesTotalSummedAsADouble = parseFloat(salesTotalSummedRoundedTenth);
+//           const salesTotalTicketAverageRoundedTenth = salesTotalTicketAverage.toFixed(2);
+//           snapshot.ref.update({ sales_total: salesTotalSummedRoundedTenth });
+//           snapshot.ref.update({ sales_total_ticket_average: salesTotalTicketAverageRoundedTenth });
+//           snapshot.ref.update({ total_sort: salesTotalSummedAsADouble });
+//           console.log('salesTotalsSummed IN THE !salesData.Sale', salesTotalsSummed);
+//           console.log(
+//             'IN THE !salesData.Sale BLOCK',
+//             `${salesTotalsSummed} => ${salesTotalSummedAsADouble}`,
+//             `employee_id: ${employee_id}`
+//           );
+//           return null;
+//         } catch (error) {
+//           console.log('ERROR FROM THE !salesData.Sale BLOCK', error, `employee_id: ${employee_id}`);
+//           return null;
+//         }
+//       } else if (salesData.Sale) {
+//         try {
+//           const salesTotals = salesData.Sale.map((sale) => parseFloat(sale.total));
+//           const totalsArray = [];
+//           salesTotals.forEach((total) => totalsArray.push(total));
+//           const salesTotalsSummed = totalsArray.reduce((total, sale) => total + sale, 0);
+//           const salesTotalTicketAverage = salesTotalsSummed / salesTotals.length;
+//           const salesTotalSummedRoundedTenth = salesTotalsSummed.toFixed(2);
+//           const salesTotalSummedAsADouble = parseFloat(salesTotalSummedRoundedTenth);
+//           const salesTotalTicketAverageRoundedTenth = salesTotalTicketAverage.toFixed(2);
+//           snapshot.ref.update({ sales_total: salesTotalSummedRoundedTenth });
+//           snapshot.ref.update({ sales_total_ticket_average: salesTotalTicketAverageRoundedTenth });
+//           snapshot.ref.update({ total_sort: salesTotalSummedAsADouble });
+//           console.log('salesTotalsSummed', salesTotalsSummed);
+//           console.log(
+//             'IN THE ELSE IF BLOCK, SUMMED-DOUBLE',
+//             `${salesTotalsSummed} => ${salesTotalSummedAsADouble}`,
+//             `employee_id: ${employee_id}`
+//           );
+//           return null;
+//         } catch (error) {
+//           console.log('ERROR FROM THE ELSE IF BLOCK', error, `employee_id: ${employee_id}`);
+//           return null;
+//         }
+//       } else {
+//         console.log('FROM THE ELSE BLOCK', `employee_id: ${employee_id}`);
+//         return null;
+//       }
+//     });
+//     console.log('FROM THE END OF THE FUNCTION OUTSIDE THE USERS COLLECTION LOOP');
+//     return null;
+//   });
+//* Exporting the function to be called by the client that is being used to get the daily sales for each employee.
+exports.updateFirebaseUsers = updateFirebaseUsers.updateFirebaseUsers;
 
 //! Using Express Here Start
-const expressApp = express();
-const checkDatabaseToken = async function (req, res, next) {
-  const tokenQuerySnapshot = firestore.collection('access_token');
-  const selectedToken = (await tokenQuerySnapshot.doc('OpLObUEkHj1VHbZWShpZ').get()).data().token;
-
-  const checkTokenResponse = await fetch(`${process.env.BASE_URL}/${process.env.ACCOUNT_ID}/Sale.json`, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${selectedToken}`,
-    },
-  });
-
-  const responseData = await checkTokenResponse.json();
-  if (responseData.httpCode === '401') {
-    try {
-      const updateTokenResponse = await fetch('https://cloud.lightspeedapp.com/oauth/access_token.php', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          client_id: process.env.CLIENT_ID,
-          client_secret: process.env.CLIENT_SECRET,
-          refresh_token: process.env.REFRESH_TOKEN,
-          grant_type: 'refresh_token',
-        }),
-      });
-      const updateTokenData = await updateTokenResponse.json();
-      const newUpdatedToken = updateTokenData.access_token;
-      const tokenQuerySnapshot = firestore.collection('access_token');
-      const selectedToken = await tokenQuerySnapshot.doc('OpLObUEkHj1VHbZWShpZ').get();
-      const updateIsComplete = await selectedToken.ref.update({ token: newUpdatedToken }).then(() => {
-        console.log('updateIsCompleteInTheThenBlock');
-        return next();
-      });
-    } catch (error) {
-      console.log('ERROR FROM THE UPDATE TOKEN BLOCK', error);
-    }
-  } else if (responseData.Sale) {
-    console.log('THE ACCESS TOKEN IS STILL VALID');
-    return next();
-  } else {
-    console.log('ERROR FROM THE CHECK TOKEN BLOCK', responseData);
-  }
-  // console.log('THE ACCESS TOKEN IS STILL VALID');
-  // return next();
-};
-expressApp.use(checkDatabaseToken);
-expressApp.use(cors({ origin: true }));
-
-expressApp.get('/month-to-date', async (request, response) => {
-  try {
-    const tokenQuerySnapshot = firestore.collection('access_token');
-    const selectedToken = (await tokenQuerySnapshot.doc('OpLObUEkHj1VHbZWShpZ').get()).data().token;
-    const monthToDateSalesResponse = await fetch(
-      `${process.env.BASE_URL}/${process.env.ACCOUNT_ID}/Sale.json?timeStamp=%3E%3C,2023-04-01T09:00:00-0400,2023-04-03T16:00:00-0400&employeeID=462&sort=-timeStamp&load_relations=all`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${selectedToken}`,
-        },
-      }
-    );
-    console.log('IN THE /month-to-date BLOCK AFTER THE MIDDLEWARE', selectedToken);
-    const monthToMonthRawSalesData = await monthToDateSalesResponse.json();
-    response.send(monthToMonthRawSalesData);
-  } catch (error) {
-    console.log('ERROR FROM THE EXPRESS APP', error);
-  }
-});
-//* Exporting the function to be called by the client.
-exports.monthToDateSales = functions.https.onRequest(expressApp);
+//* Exporting the function to be called by the client that is being used to get the month to date sales for each employee.
+exports.monthToDateSales = monthToDateSales.monthToDateSales;
 //! Using Express Here Stop
 
 //Callable function.
