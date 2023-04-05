@@ -1,10 +1,7 @@
 const functions = require('firebase-functions');
-const cors = require('cors');
-const express = require('express');
 const fetch = require('node-fetch');
 const moment = require('moment-timezone');
 const firebase = require('firebase-admin');
-//firebase.initializeApp();
 var firestore = firebase.firestore();
 
 exports.updateFirebaseUsers = functions.pubsub
@@ -19,24 +16,26 @@ exports.updateFirebaseUsers = functions.pubsub
     const users = firestore.collection('users');
     const user = await users.where('employee_role_name', '==', 'Associate').get();
 
+    //! This is the where the access token gets updated.
+    const updateTokenResponse = await fetch('https://cloud.lightspeedapp.com/oauth/access_token.php', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        client_id: process.env.CLIENT_ID,
+        client_secret: process.env.CLIENT_SECRET,
+        refresh_token: process.env.REFRESH_TOKEN,
+        grant_type: 'refresh_token',
+      }),
+    });
+    const updateTokenData = await updateTokenResponse.json();
+    const newUpdatedToken = updateTokenData.access_token;
+    console.log('THIS IS THE NEW UPDATED TOKEN FROM THE updateFirebaseUsers', newUpdatedToken);
+
     user.forEach(async (snapshot) => {
       const { employee_id } = snapshot.data();
-      //! This is the where the access token gets updated.
-      const updateTokenResponse = await fetch('https://cloud.lightspeedapp.com/oauth/access_token.php', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          client_id: process.env.CLIENT_ID,
-          client_secret: process.env.CLIENT_SECRET,
-          refresh_token: process.env.REFRESH_TOKEN,
-          grant_type: 'refresh_token',
-        }),
-      });
-      const updateTokenData = await updateTokenResponse.json();
-      const newUpdatedToken = updateTokenData.access_token;
-      console.log('THIS IS THE NEW UPDATED TOKEN FROM THE updateFirebaseUsers', newUpdatedToken);
+
       //! This where the API call is made to get the total sales.
       const salesDataResponse = await fetch(
         `${process.env.BASE_URL}/${process.env.ACCOUNT_ID}/Sale.json?timeStamp=%3E,${onlyDateCurrent}T00:00:00-0400&employeeID=${employee_id}&sort=-timeStamp&load_relations=all`,
