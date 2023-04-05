@@ -14,6 +14,7 @@ exports.updateFirebaseUsers = functions.pubsub
     //! this is where i want it to work start
     let n = new Date();
     let onlyDateCurrent = moment(n.toISOString()).tz('America/New_York').format('YYYY-MM-DD');
+    console.log('THIS IS THE ONLY DATE CURRENT updateFirebaseUsers', onlyDateCurrent);
 
     const users = firestore.collection('users');
     const user = await users.where('employee_role_name', '==', 'Associate').get();
@@ -35,6 +36,7 @@ exports.updateFirebaseUsers = functions.pubsub
       });
       const updateTokenData = await updateTokenResponse.json();
       const newUpdatedToken = updateTokenData.access_token;
+      console.log('THIS IS THE NEW UPDATED TOKEN FROM THE updateFirebaseUsers', newUpdatedToken);
       //! This where the API call is made to get the total sales.
       const salesDataResponse = await fetch(
         `${process.env.BASE_URL}/${process.env.ACCOUNT_ID}/Sale.json?timeStamp=%3E,${onlyDateCurrent}T00:00:00-0400&employeeID=${employee_id}&sort=-timeStamp&load_relations=all`,

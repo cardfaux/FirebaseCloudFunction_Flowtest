@@ -13,6 +13,7 @@ exports.monthToDateSales = functions.pubsub
   .onRun(async (context) => {
     let n = new Date();
     let onlyFirstOfMonth = moment().tz('America/New_York').startOf('month').format('YYYY-MM-DD');
+    console.log('THIS IS THE ONLY FIRST OF THE MONTH', onlyFirstOfMonth);
 
     const users = firestore.collection('users');
     const user = await users.where('employee_role_name', '==', 'Associate').get();
@@ -34,6 +35,7 @@ exports.monthToDateSales = functions.pubsub
       });
       const updateTokenData = await updateTokenResponse.json();
       const newUpdatedToken = updateTokenData.access_token;
+      console.log('THIS IS THE NEW UPDATED TOKEN FROM THE monthToDateSales', newUpdatedToken);
       //! This where the API call is made to get the total sales.
       const salesDataResponse = await fetch(
         `${process.env.BASE_URL}/${process.env.ACCOUNT_ID}/Sale.json?timeStamp=%3E,${onlyFirstOfMonth}T00:00:00-0400&employeeID=${employee_id}&sort=-timeStamp&load_relations=all`,
@@ -46,6 +48,28 @@ exports.monthToDateSales = functions.pubsub
         }
       );
       const salesData = await salesDataResponse.json();
+
+      //! This is where I am trying to paginate the month to date sales data start.
+      // const attributes = salesData['@attributes'];
+      // console.log('THIS IS THE ATTRIBUTES', attributes);
+      // const next = attributes.next;
+      // const nextTotalsArray = [];
+
+      // while (next !== '') {
+      //   const nextSalesDataResponse = await fetch(next, {
+      //     method: 'GET',
+      //     headers: {
+      //       'Content-Type': 'application/json',
+      //       Authorization: `Bearer ${newUpdatedToken}`,
+      //     },
+      //   });
+      //   const nextSalesData = await nextSalesDataResponse.json();
+      //   const nextSalesTotals = nextSalesData.Sale.map((sale) => parseFloat(sale.total));
+      //   nextSalesTotals.forEach((total) => nextTotalsArray.push(total));
+      // }
+
+      //! This is where I am trying to paginate the month to date sales data stop.
+
       //! if no Sale data is returned, return null.
       if (!salesData.Sale) {
         try {
@@ -73,11 +97,39 @@ exports.monthToDateSales = functions.pubsub
           return null;
         }
       } else if (salesData.Sale) {
+        const nextTotalsArray = [];
+        const attributes = salesData['@attributes'];
+        console.log('THIS IS THE ATTRIBUTES', attributes);
+        // try {
+        //   const attributes = salesData['@attributes'];
+        //   const next = attributes.next;
+        //   console.log('THIS IS THE ATTRIBUTES', attributes);
+        //   if (next !== '') {
+        //     async function paginateNextApiResponses() {
+        //       const nextSalesDataResponse = await fetch(next, {
+        //         method: 'GET',
+        //         headers: {
+        //           'Content-Type': 'application/json',
+        //           Authorization: `Bearer ${newUpdatedToken}`,
+        //         },
+        //       });
+        //       const nextSalesData = await nextSalesDataResponse.json();
+        //       const nextSalesTotals = nextSalesData.Sale.map((sale) => parseFloat(sale.total));
+        //       nextSalesTotals.forEach((total) => nextTotalsArray.push(total));
+        //       if (nextSalesData['@attributes'].next !== '') {
+        //         paginateNextApiResponses();
+        //       }
+        //     }
+        //   }
+        // } catch (error) {
+        //   console.log('ERROR FROM THE ELSE IF NEXT BLOCK', error, `employee_id: ${employee_id}`);
+        //   return null;
+        // }
         try {
           const salesTotals = salesData.Sale.map((sale) => parseFloat(sale.total));
           const totalsArray = [];
           salesTotals.forEach((total) => totalsArray.push(total));
-          const salesTotalsSummed = totalsArray.reduce((total, sale) => total + sale, 0);
+          const salesTotalsSummed = totalsArray?.concat(nextTotalsArray).reduce((total, sale) => total + sale, 0);
           const salesTotalTicketAverage = salesTotalsSummed / salesTotals.length;
           const salesTotalSummedRoundedTenth = salesTotalsSummed.toFixed(2);
           const salesTotalSummedAsADouble = parseFloat(salesTotalSummedRoundedTenth);
