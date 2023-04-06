@@ -54,6 +54,10 @@ exports.monthToDateSales = functions.pubsub
           const salesTotals = salesFakeData.Sale.map((sale) => parseFloat(sale.total));
           const totalsArray = [];
           salesTotals.forEach((total) => totalsArray.push(total));
+          const salesOver100 = totalsArray.filter((total) => total >= 100);
+          const salesOver100Length = salesOver100.length;
+          console.log('salesOver100Array', salesOver100);
+          console.log('salesOver100Array.length', salesOver100Length, `employee_id: ${employee_id}`);
           const salesTotalsSummed = totalsArray.reduce((total, sale) => total + sale, 0);
           const salesTotalTicketAverage = salesTotalsSummed / salesTotals.length;
           const salesTotalSummedRoundedTenth = salesTotalsSummed.toFixed(2);
@@ -62,6 +66,7 @@ exports.monthToDateSales = functions.pubsub
           snapshot.ref.update({ month_sales_total: salesTotalSummedRoundedTenth });
           snapshot.ref.update({ month_sales_total_ticket_average: salesTotalTicketAverageRoundedTenth });
           snapshot.ref.update({ month_total_sort: salesTotalSummedAsADouble });
+          snapshot.ref.update({ month_sales_over_100: salesOver100Length });
           console.log('salesTotalsSummed IN THE !salesData.Sale', salesTotalsSummed);
           console.log(
             'IN THE !salesData.Sale BLOCK',
@@ -106,6 +111,10 @@ exports.monthToDateSales = functions.pubsub
           const salesTotals = salesData.Sale.map((sale) => parseFloat(sale.total));
           const totalsArray = [];
           salesTotals.forEach((total) => totalsArray.push(total));
+          const salesOver100 = totalsArray.filter((total) => total >= 100);
+          const salesOver100Length = salesOver100.length;
+          console.log('salesOver100Array', salesOver100);
+          console.log('salesOver100Array.length', salesOver100Length, `employee_id: ${employee_id}`);
           const salesTotalsSummed = totalsArray?.concat(nextTotalsArray).reduce((total, sale) => total + sale, 0);
           const salesTotalTicketAverage = salesTotalsSummed / salesTotals.length;
           const salesTotalSummedRoundedTenth = salesTotalsSummed.toFixed(2);
@@ -114,6 +123,7 @@ exports.monthToDateSales = functions.pubsub
           snapshot.ref.update({ month_sales_total: salesTotalSummedRoundedTenth });
           snapshot.ref.update({ month_sales_total_ticket_average: salesTotalTicketAverageRoundedTenth });
           snapshot.ref.update({ month_total_sort: salesTotalSummedAsADouble });
+          snapshot.ref.update({ month_sales_over_100: salesOver100Length });
           console.log('salesTotalsSummed', salesTotalsSummed);
           console.log(
             'IN THE ELSE IF BLOCK, SUMMED-DOUBLE',
