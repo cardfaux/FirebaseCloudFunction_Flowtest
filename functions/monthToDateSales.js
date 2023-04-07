@@ -4,6 +4,8 @@ const moment = require('moment-timezone');
 const firebase = require('firebase-admin');
 var firestore = firebase.firestore();
 
+//! This function is for getting the month to date sales totals for each associate at half past every hour and updating the numbers in the database.
+
 exports.monthToDateSales = functions.pubsub
   .schedule('30 * * * *')
   .timeZone('America/New_York')
@@ -47,7 +49,7 @@ exports.monthToDateSales = functions.pubsub
       );
       const salesData = await salesDataResponse.json();
 
-      //! if no Sale data is returned, return null.
+      //! if no Sale data is returned, use the fake data to add zeros to the database.
       if (!salesData.Sale) {
         try {
           const salesFakeData = { Sale: [{ total: '00.00' }, { total: '00.00' }, { total: '00.00' }] };

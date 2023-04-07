@@ -4,6 +4,8 @@ const moment = require('moment-timezone');
 const firebase = require('firebase-admin');
 var firestore = firebase.firestore();
 
+//! This function is for getting the daily sales totals for each associate at the top of every hour and updating the numbers in the database.
+
 exports.updateFirebaseUsers = functions.pubsub
   .schedule('0 * * * *')
   .timeZone('America/New_York')

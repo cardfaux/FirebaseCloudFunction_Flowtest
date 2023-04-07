@@ -6,6 +6,7 @@ firebase.initializeApp();
 const monthToDateSales = require('./monthToDateSales');
 const updateFirebaseUsers = require('./updateFirebaseUsers');
 const deleteSelectedUser = require('./deleteSelectedUser');
+const dailyStoreSales = require('./dailyStoreSales');
 
 // Create and deploy your first functions
 // https://firebase.google.com/docs/functions/get-started
@@ -47,6 +48,9 @@ exports.helloWorld = functions.https.onRequest(async (request, response) => {
     }
   }
 });
+
+//* Exporting the function to be called by the client that is being used to get the daily sales for each store.
+exports.dailyStoreSales = dailyStoreSales.dailyStoreSales;
 
 //* Exporting the function to delete a selected user from the database.
 exports.deleteSelectedUser = deleteSelectedUser.deleteSelectedUser;

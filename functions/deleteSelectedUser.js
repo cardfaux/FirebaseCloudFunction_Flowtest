@@ -3,6 +3,8 @@ const firebase = require('firebase-admin');
 const { getAuth } = require('firebase-admin/auth');
 var firestore = firebase.firestore();
 
+//! This function is for deleting a user from the authenication section and firestore database users collection.
+
 exports.deleteSelectedUser = functions.https.onRequest(async (request, response) => {
   getAuth()
     .deleteUser(request.query.uid)
