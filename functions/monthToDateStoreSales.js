@@ -4,16 +4,16 @@ const moment = require('moment-timezone');
 const firebase = require('firebase-admin');
 var firestore = firebase.firestore();
 
-//! This function is for getting the daily sales totals for each store at the 25 of every hour and updating the numbers in the database.
+//! This function is for getting the month to date sales totals for each store at the 45 of every hour and updating the numbers in the database.
 
-exports.dailyStoreSales = functions.pubsub
-  .schedule('25 * * * *')
+exports.monthToDateStoreSales = functions.pubsub
+  .schedule('45 * * * *')
   .timeZone('America/New_York')
   .onRun(async (context) => {
     //! this is where i want it to work start
     let n = new Date();
-    let onlyDateCurrent = moment(n.toISOString()).tz('America/New_York').format('YYYY-MM-DD');
-    console.log('THIS IS THE ONLY DATE CURRENT dailyStoreSales', onlyDateCurrent);
+    let onlyFirstOfMonth = moment().tz('America/New_York').startOf('month').format('YYYY-MM-DD');
+    console.log('THIS IS THE ONLY FIRST OF THE MONTH', onlyFirstOfMonth);
 
     const stores = firestore.collection('stores');
     const store = await stores.get();
@@ -40,7 +40,7 @@ exports.dailyStoreSales = functions.pubsub
 
       //! This where the API call is made to get the total sales.
       const salesDataResponse = await fetch(
-        `${process.env.BASE_URL}/${process.env.ACCOUNT_ID}/Sale.json?timeStamp=%3E,${onlyDateCurrent}T00:00:00-0400&shopID=${shop_id}&sort=-timeStamp&load_relations=all`,
+        `${process.env.BASE_URL}/${process.env.ACCOUNT_ID}/Sale.json?timeStamp=%3E,${onlyFirstOfMonth}T00:00:00-0400&shopID=${shop_id}&sort=-timeStamp&load_relations=all`,
         {
           method: 'GET',
           headers: {
@@ -65,10 +65,10 @@ exports.dailyStoreSales = functions.pubsub
           const salesTotalSummedRoundedTenth = salesTotalsSummed.toFixed(2);
           const salesTotalSummedAsADouble = parseFloat(salesTotalSummedRoundedTenth);
           const salesTotalTicketAverageRoundedTenth = salesTotalTicketAverage.toFixed(2);
-          snapshot.ref.update({ sales_total: salesTotalSummedRoundedTenth });
-          snapshot.ref.update({ sales_total_ticket_average: salesTotalTicketAverageRoundedTenth });
-          snapshot.ref.update({ total_sort: salesTotalSummedAsADouble });
-          snapshot.ref.update({ sales_over_100: salesOver100Length });
+          snapshot.ref.update({ month_sales_total: salesTotalSummedRoundedTenth });
+          snapshot.ref.update({ month_sales_total_ticket_average: salesTotalTicketAverageRoundedTenth });
+          snapshot.ref.update({ month_total_sort: salesTotalSummedAsADouble });
+          snapshot.ref.update({ month_sales_over_100: salesOver100Length });
           console.log('salesTotalsSummed IN THE !salesData.Sale', salesTotalsSummed);
           console.log(
             'IN THE !salesData.Sale BLOCK',
@@ -81,6 +81,34 @@ exports.dailyStoreSales = functions.pubsub
           return null;
         }
       } else if (salesData.Sale) {
+        const nextTotalsArray = [];
+        const attributes = salesData['@attributes'];
+        console.log('THIS IS THE ATTRIBUTES', attributes);
+        // try {
+        //   const attributes = salesData['@attributes'];
+        //   const next = attributes.next;
+        //   console.log('THIS IS THE ATTRIBUTES', attributes);
+        //   if (next !== '') {
+        //     async function paginateNextApiResponses() {
+        //       const nextSalesDataResponse = await fetch(next, {
+        //         method: 'GET',
+        //         headers: {
+        //           'Content-Type': 'application/json',
+        //           Authorization: `Bearer ${newUpdatedToken}`,
+        //         },
+        //       });
+        //       const nextSalesData = await nextSalesDataResponse.json();
+        //       const nextSalesTotals = nextSalesData.Sale.map((sale) => parseFloat(sale.total));
+        //       nextSalesTotals.forEach((total) => nextTotalsArray.push(total));
+        //       if (nextSalesData['@attributes'].next !== '') {
+        //         paginateNextApiResponses();
+        //       }
+        //     }
+        //   }
+        // } catch (error) {
+        //   console.log('ERROR FROM THE ELSE IF NEXT BLOCK', error, `employee_id: ${employee_id}`);
+        //   return null;
+        // }
         try {
           const salesTotals = salesData.Sale.map((sale) => parseFloat(sale.total));
           const totalsArray = [];
@@ -88,15 +116,15 @@ exports.dailyStoreSales = functions.pubsub
           const salesOver100 = totalsArray.filter((total) => total >= 100);
           const salesOver100Length = salesOver100.length;
           console.log('salesOver100Array.length', salesOver100Length, `shop_id: ${shop_id}`);
-          const salesTotalsSummed = totalsArray.reduce((total, sale) => total + sale, 0);
+          const salesTotalsSummed = totalsArray?.concat(nextTotalsArray).reduce((total, sale) => total + sale, 0);
           const salesTotalTicketAverage = salesTotalsSummed / salesTotals.length;
           const salesTotalSummedRoundedTenth = salesTotalsSummed.toFixed(2);
           const salesTotalSummedAsADouble = parseFloat(salesTotalSummedRoundedTenth);
           const salesTotalTicketAverageRoundedTenth = salesTotalTicketAverage.toFixed(2);
-          snapshot.ref.update({ sales_total: salesTotalSummedRoundedTenth });
-          snapshot.ref.update({ sales_total_ticket_average: salesTotalTicketAverageRoundedTenth });
-          snapshot.ref.update({ total_sort: salesTotalSummedAsADouble });
-          snapshot.ref.update({ sales_over_100: salesOver100Length });
+          snapshot.ref.update({ month_sales_total: salesTotalSummedRoundedTenth });
+          snapshot.ref.update({ month_sales_total_ticket_average: salesTotalTicketAverageRoundedTenth });
+          snapshot.ref.update({ month_total_sort: salesTotalSummedAsADouble });
+          snapshot.ref.update({ month_sales_over_100: salesOver100Length });
           console.log('salesTotalsSummed', salesTotalsSummed);
           console.log(
             'IN THE ELSE IF BLOCK, SUMMED-DOUBLE',
