@@ -8,9 +8,13 @@ const updateFirebaseUsers = require('./updateFirebaseUsers');
 const deleteSelectedUser = require('./deleteSelectedUser');
 const dailyStoreSales = require('./dailyStoreSales');
 const monthToDateStoreSales = require('./monthToDateStoreSales');
+const dailyEmployeeHours = require('./dailyEmployeeHours');
 
 // Create and deploy your first functions
 // https://firebase.google.com/docs/functions/get-started
+
+//* Exporting the function to be called by the client that is being used to get the daily employee hours.
+exports.dailyEmployeeHours = dailyEmployeeHours.dailyEmployeeHours;
 
 //* Exporting the function to be called by the client that is being used to get the month to date sales for each store.
 exports.monthToDateStoreSales = monthToDateStoreSales.monthToDateStoreSales;
