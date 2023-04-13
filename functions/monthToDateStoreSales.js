@@ -82,37 +82,42 @@ exports.monthToDateStoreSales = functions.pubsub
         }
       } else if (salesData.Sale) {
         const nextTotalsArray = [];
-        const attributes = salesData['@attributes'];
-        console.log('THIS IS THE ATTRIBUTES', attributes);
-        // try {
-        //   const attributes = salesData['@attributes'];
-        //   const next = attributes.next;
-        //   console.log('THIS IS THE ATTRIBUTES', attributes);
-        //   if (next !== '') {
-        //     async function paginateNextApiResponses() {
-        //       const nextSalesDataResponse = await fetch(next, {
-        //         method: 'GET',
-        //         headers: {
-        //           'Content-Type': 'application/json',
-        //           Authorization: `Bearer ${newUpdatedToken}`,
-        //         },
-        //       });
-        //       const nextSalesData = await nextSalesDataResponse.json();
-        //       const nextSalesTotals = nextSalesData.Sale.map((sale) => parseFloat(sale.total));
-        //       nextSalesTotals.forEach((total) => nextTotalsArray.push(total));
-        //       if (nextSalesData['@attributes'].next !== '') {
-        //         paginateNextApiResponses();
-        //       }
-        //     }
-        //   }
-        // } catch (error) {
-        //   console.log('ERROR FROM THE ELSE IF NEXT BLOCK', error, `employee_id: ${employee_id}`);
-        //   return null;
-        // }
+        try {
+          const attributes = salesData['@attributes'];
+          const next = attributes.next;
+          console.log('THIS IS THE ATTRIBUTES', attributes);
+          if (next !== '') {
+            async function paginateNextApiResponses() {
+              const nextSalesDataResponse = await fetch(next, {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${newUpdatedToken}`,
+                },
+              });
+              const nextSalesData = await nextSalesDataResponse.json();
+              const nextSalesTotals = nextSalesData.Sale.map((sale) => parseFloat(sale.total));
+              nextSalesTotals.forEach((total) => nextTotalsArray.push(total));
+              console.log('nextTotalsArray', nextTotalsArray);
+              if (nextSalesData['@attributes'].next !== '') {
+                await paginateNextApiResponses();
+              } else {
+                return null;
+              }
+            }
+            await paginateNextApiResponses();
+          } else {
+            return null;
+          }
+        } catch (error) {
+          console.log('ERROR FROM THE ELSE IF NEXT BLOCK', error, `employee_id: ${employee_id}`);
+          return null;
+        }
         try {
           const salesTotals = salesData.Sale.map((sale) => parseFloat(sale.total));
           const totalsArray = [];
           salesTotals.forEach((total) => totalsArray.push(total));
+          console.log('totalsArray', totalsArray);
           const salesOver100 = totalsArray.filter((total) => total >= 100);
           const salesOver100Length = salesOver100.length;
           console.log('salesOver100Array.length', salesOver100Length, `shop_id: ${shop_id}`);
