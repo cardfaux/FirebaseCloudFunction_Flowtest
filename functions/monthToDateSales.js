@@ -81,51 +81,92 @@ exports.monthToDateSales = functions.pubsub
           return null;
         }
       } else if (salesData.Sale) {
-        const nextTotalsArray = [];
-        const attributes = salesData['@attributes'];
-        console.log('THIS IS THE ATTRIBUTES', attributes);
-        // try {
-        //   const attributes = salesData['@attributes'];
-        //   const next = attributes.next;
-        //   console.log('THIS IS THE ATTRIBUTES', attributes);
-        //   if (next !== '') {
-        //     async function paginateNextApiResponses() {
-        //       const nextSalesDataResponse = await fetch(next, {
-        //         method: 'GET',
-        //         headers: {
-        //           'Content-Type': 'application/json',
-        //           Authorization: `Bearer ${newUpdatedToken}`,
-        //         },
-        //       });
-        //       const nextSalesData = await nextSalesDataResponse.json();
-        //       const nextSalesTotals = nextSalesData.Sale.map((sale) => parseFloat(sale.total));
-        //       nextSalesTotals.forEach((total) => nextTotalsArray.push(total));
-        //       if (nextSalesData['@attributes'].next !== '') {
-        //         paginateNextApiResponses();
-        //       }
-        //     }
-        //   }
-        // } catch (error) {
-        //   console.log('ERROR FROM THE ELSE IF NEXT BLOCK', error, `employee_id: ${employee_id}`);
-        //   return null;
-        // }
         try {
+          //? This mapping over the first page of sales data and returning an array of the totals.
           const salesTotals = salesData.Sale.map((sale) => parseFloat(sale.total));
+          //? This is making an empty array to push the totals into.
           const totalsArray = [];
+          const nextTotalsArray = [];
+          //? This is pushing the totals into the empty array.
           salesTotals.forEach((total) => totalsArray.push(total));
-          const salesOver100 = totalsArray.filter((total) => total >= 100);
-          const salesOver100Length = salesOver100.length;
+          //! put the pagination try catch block here start.
+          try {
+            //? This is getting the next attribute from the first page of sales data.
+            const attributes = salesData['@attributes'];
+            const next = attributes.next;
+            console.log('THIS IS THE ATTRIBUTES', attributes);
+            //? This is checking to see if there is a next attribute and if there is, it will run the function to get the next page of sales data.
+            if (next !== '') {
+              //? This is the function that will get the next page of sales data.
+              async function paginateNextApiResponses(nextURL = next) {
+                const nextSalesDataResponse = await fetch(nextURL, {
+                  method: 'GET',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${newUpdatedToken}`,
+                  },
+                });
+                //? This is getting the data and mapping over it to get the totals and pushing them into an empty array.
+                const nextSalesData = await nextSalesDataResponse.json();
+                const nextSalesTotals = nextSalesData.Sale.map((sale) => parseFloat(sale.total));
+                nextSalesTotals.forEach((total) => nextTotalsArray.push(total));
+                console.log('nextTotalsArray', nextTotalsArray, `employee_id: ${employee_id}`);
+                const inFunctionArrayLength = nextTotalsArray.length;
+                console.log('inFunctionArrayLength', inFunctionArrayLength, `employee_id: ${employee_id}`);
+                //? This is checking to see if there is a next attribute and if there is, it will run the function again to get the next page of sales data.
+                if (nextSalesData['@attributes'].next !== '') {
+                  console.log('THERE ARE MORE PAGES TO PAGINATE', `employee_id: ${employee_id}`);
+                  const nextNextURL = nextSalesData['@attributes'].next;
+                  i = 1;
+                  console.log('RUNNING FUNCTION AGAIN', i++, `employee_id: ${employee_id}`);
+                  //? This is running the function again to get the next page of sales data.
+                  await paginateNextApiResponses(nextNextURL);
+                } else {
+                  console.log('THERE ARE NO MORE PAGES TO PAGINATE', `employee_id: ${employee_id}`);
+                  return null;
+                }
+              }
+              await paginateNextApiResponses();
+            } else {
+              console.log('OUT OF TH IF STATEMENT nextTotalsArray', nextTotalsArray, `employee_id: ${employee_id}`);
+              const nextArrayLength = nextTotalsArray.length;
+              console.log('nextArrayLength OUT OF IF STATEMENT', nextArrayLength, `employee_id: ${employee_id}`);
+              return null;
+            }
+          } catch (error) {
+            console.log('ERROR FROM THE CATCH BLOCK IN THE PAGINATE', error, `employee_id: ${employee_id}`);
+            return null;
+          }
+          //! put the pagination try catch block here stop.
+          //? Now concatenate the two arrays together.
+          const salesTotalsNextTotalsConcatenated = totalsArray.concat(nextTotalsArray);
+          console.log(
+            'salesTotalsNextTotalsConcatenated',
+            salesTotalsNextTotalsConcatenated,
+            `employee_id: ${employee_id}`
+          );
+          //? This is filtering the totals array for totals over 100.
+          const salesOver100 = salesTotalsNextTotalsConcatenated.filter((total) => total >= 100);
           console.log('salesOver100Array', salesOver100);
+          //? This is getting the length of the salesOver100 array.
+          const salesOver100Length = salesOver100.length;
           console.log('salesOver100Array.length', salesOver100Length, `employee_id: ${employee_id}`);
-          const salesTotalsSummed = totalsArray?.concat(nextTotalsArray).reduce((total, sale) => total + sale, 0);
-          const salesTotalTicketAverage = salesTotalsSummed / salesTotals.length;
+          //? This is concatenating the arrays together and adding the totals together.
+          const salesTotalsSummed = salesTotalsNextTotalsConcatenated.reduce((total, sale) => total + sale, 0);
+          //? This is getting the average of the sales totals.
+          const salesTotalTicketAverage = salesTotalsSummed / salesTotalsNextTotalsConcatenated.length;
+          //? This is rounding the sales totals to the nearest tenth.
           const salesTotalSummedRoundedTenth = salesTotalsSummed.toFixed(2);
+          //? This is parsing the sales totals to a double.
           const salesTotalSummedAsADouble = parseFloat(salesTotalSummedRoundedTenth);
+          //? This is rounding the sales ticket average to the nearest tenth.
           const salesTotalTicketAverageRoundedTenth = salesTotalTicketAverage.toFixed(2);
+          //? This is updating the database with the new values.
           snapshot.ref.update({ month_sales_total: salesTotalSummedRoundedTenth });
           snapshot.ref.update({ month_sales_total_ticket_average: salesTotalTicketAverageRoundedTenth });
           snapshot.ref.update({ month_total_sort: salesTotalSummedAsADouble });
           snapshot.ref.update({ month_sales_over_100: salesOver100Length });
+          //? This is logging the sales totals summed.
           console.log('salesTotalsSummed', salesTotalsSummed);
           console.log(
             'IN THE ELSE IF BLOCK, SUMMED-DOUBLE',
