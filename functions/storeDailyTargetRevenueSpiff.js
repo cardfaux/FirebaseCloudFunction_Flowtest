@@ -5,18 +5,18 @@ const firebase = require('firebase-admin');
 const { FieldValue } = require('firebase-admin/firestore');
 var firestore = firebase.firestore();
 
-//! This function is for setting and getting a daily spiff for daily revenue on an employee basis.
+//! This function is for setting and getting a daily spiff for daily revenue on a store basis.
 
-exports.dailyTargetRevenueSpiff = functions.https.onRequest(async (request, response) => {
+exports.storesDailyTargetRevenueSpiff = functions.https.onRequest(async (request, response) => {
   let n = new Date();
   let onlyDateCurrent = moment(n.toISOString()).tz('America/New_York').format('YYYY-MM-DD');
-  console.log('THIS IS THE ONLY DATE CURRENT dailyTargetRevenueSpiff', onlyDateCurrent);
+  console.log('THIS IS THE ONLY DATE CURRENT storeDailyTargetRevenueSpiff', onlyDateCurrent);
 
-  const users = firestore.collection('users');
-  const user = await users.where('employee_role_name', '==', 'Associate').get();
+  const stores = firestore.collection('stores');
+  const store = await stores.get();
 
   const spiffs = firestore.collection('spiff_names');
-  const spiff = await spiffs.where('name', '==', 'Daily Revenue').get();
+  const spiff = await spiffs.where('name', '==', 'Stores Daily Revenue').get();
 
   let revenueTargetToFloat;
   spiff.forEach(async (snapshot) => {
@@ -48,27 +48,27 @@ exports.dailyTargetRevenueSpiff = functions.https.onRequest(async (request, resp
 
   let timeStamps = [];
 
-  user.forEach(async (snapshot) => {
-    const { employee_id, monthly_sales_over_100, sales_total, target_daily_revenue_spiff_timestamp } = snapshot.data();
+  store.forEach(async (snapshot) => {
+    const { shop_id, sales_total, target_daily_revenue_spiff_timestamp } = snapshot.data();
     const timeStampInNanoSeconds = target_daily_revenue_spiff_timestamp._nanoseconds;
-    console.log('THIS IS THE EMPLOYEE ID', employee_id);
 
-    const userObject = {
-      employee_id,
+    const storeObject = {
+      shop_id,
       target_daily_revenue_spiff_timestamp: timeStampInNanoSeconds,
     };
 
-    timeStamps.push(userObject);
+    timeStamps.push(storeObject);
+    console.log('THIS IS THE TIME STAMPS ARRAY', timeStamps);
 
     const salesTotalToFloat = parseFloat(sales_total);
 
     if (revenueTargetToFloat >= salesTotalToFloat) {
-      console.log('GOAL IS NOT MET', `employee_id: ${employee_id}`);
+      console.log('GOAL IS NOT MET', `shop_id: ${shop_id}`);
       snapshot.ref.update({ target_daily_revenue_spiff: false });
-      // snapshot.ref.update({ target_daily_revenue_spiff_timestamp: FieldValue.serverTimestamp() });
+      snapshot.ref.update({ target_daily_revenue_spiff_timestamp: FieldValue.serverTimestamp() });
     }
     if (salesTotalToFloat >= revenueTargetToFloat) {
-      console.log('GOAL IS MET', `employee_id: ${employee_id}`);
+      console.log('GOAL IS MET', `shop_id: ${shop_id}`);
       snapshot.ref.update({ target_daily_revenue_spiff: true });
       snapshot.ref.update({ target_daily_revenue_spiff_timestamp: FieldValue.serverTimestamp() });
     }
@@ -78,6 +78,6 @@ exports.dailyTargetRevenueSpiff = functions.https.onRequest(async (request, resp
   const theSelectedMin = timeStamps.find((o) => o.target_daily_revenue_spiff_timestamp === testingMin);
   console.log('THIS IS THE FIRST ONE', theSelectedMin);
 
-  console.log('FROM THE END OF THE FUNCTION OUTSIDE THE USERS COLLECTION LOOP');
+  console.log('FROM THE END OF THE FUNCTION OUTSIDE THE STORES COLLECTION LOOP');
   return response.json({ message: 'Successfully updated the daily target revenue spiff' });
 });
