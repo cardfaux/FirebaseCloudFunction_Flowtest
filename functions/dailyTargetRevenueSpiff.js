@@ -2,6 +2,7 @@ const functions = require('firebase-functions');
 const fetch = require('node-fetch');
 const moment = require('moment-timezone');
 const firebase = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 var firestore = firebase.firestore();
 
 //! This function is for getting the month to date sales totals for each associate at half past every hour and updating the numbers in the database.
@@ -45,24 +46,37 @@ exports.dailyTargetRevenueSpiff = functions.https.onRequest(async (request, resp
     console.log('THIS THE DURATION OF TIME', theDifferenceInHMS);
   });
 
+  let timeStamps = [];
+
   user.forEach(async (snapshot) => {
-    const { employee_id, monthly_sales_over_100, sales_total } = snapshot.data();
+    const { employee_id, monthly_sales_over_100, sales_total, target_daily_revenue_spiff_timestamp } = snapshot.data();
+    const timeStampInNanoSeconds = target_daily_revenue_spiff_timestamp._nanoseconds;
     console.log('THIS IS THE EMPLOYEE ID', employee_id);
-    // console.log('THIS IS THE MONTHLY SALES OVER 100', monthly_sales_over_100);
+
+    const userObject = {
+      employee_id,
+      target_daily_revenue_spiff_timestamp: timeStampInNanoSeconds,
+    };
+
+    timeStamps.push(userObject);
 
     const salesTotalToFloat = parseFloat(sales_total);
 
     if (revenueTargetToFloat >= salesTotalToFloat) {
-      console.log('THIS IS THE SALES TOTAL TO FLOAT', salesTotalToFloat);
-      console.log('THIS IS THE REVENUE TARGET TO FLOAT', revenueTargetToFloat);
       console.log('GOAL IS NOT MET', `employee_id: ${employee_id}`);
+      snapshot.ref.update({ target_daily_revenue_spiff: false });
+      // snapshot.ref.update({ target_daily_revenue_spiff_timestamp: FieldValue.serverTimestamp() });
     }
     if (salesTotalToFloat >= revenueTargetToFloat) {
-      console.log('THIS IS THE SALES TOTAL TO FLOAT', salesTotalToFloat);
-      console.log('THIS IS THE REVENUE TARGET TO FLOAT', revenueTargetToFloat);
       console.log('GOAL IS MET', `employee_id: ${employee_id}`);
+      snapshot.ref.update({ target_daily_revenue_spiff: true });
+      snapshot.ref.update({ target_daily_revenue_spiff_timestamp: FieldValue.serverTimestamp() });
     }
   });
+
+  const testingMin = Math.min(...timeStamps.map((o) => o.target_daily_revenue_spiff_timestamp));
+  const theSelectedMin = timeStamps.find((o) => o.target_daily_revenue_spiff_timestamp === testingMin);
+  console.log('THIS IS THE FIRST ONE', theSelectedMin);
 
   console.log('FROM THE END OF THE FUNCTION OUTSIDE THE USERS COLLECTION LOOP');
   return response.json({ message: 'Successfully updated the daily target revenue spiff' });
