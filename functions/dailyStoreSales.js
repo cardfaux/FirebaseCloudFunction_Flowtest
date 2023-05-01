@@ -1,4 +1,5 @@
 const functions = require('firebase-functions');
+const { getFirestore, doc, getDoc } = require('firebase/firestore');
 const fetch = require('node-fetch');
 const moment = require('moment-timezone');
 const firebase = require('firebase-admin');
@@ -6,8 +7,16 @@ var firestore = firebase.firestore();
 
 //! This function is for getting the daily sales totals for each store at the 25 of every hour and updating the numbers in the database.
 
-exports.dailyStoreSales = functions.pubsub
-  .schedule('25 * * * *')
+const RUNTIME_OPTS = {
+  timeoutSeconds: 540,
+  //memory: "2GB"
+};
+
+const howLong = '25 * * * *';
+
+exports.dailyStoreSales = functions
+  .runWith(RUNTIME_OPTS)
+  .pubsub.schedule(`${howLong}`)
   .timeZone('America/New_York')
   .onRun(async (context) => {
     //! this is where i want it to work start

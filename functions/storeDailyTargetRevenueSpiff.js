@@ -49,12 +49,13 @@ exports.storesDailyTargetRevenueSpiff = functions.https.onRequest(async (request
   let timeStamps = [];
 
   store.forEach(async (snapshot) => {
-    const { shop_id, sales_total, target_daily_revenue_spiff_timestamp } = snapshot.data();
+    const { shop_id, sales_total, target_daily_revenue_spiff_timestamp, target_daily_revenue_spiff } = snapshot.data();
     const timeStampInNanoSeconds = target_daily_revenue_spiff_timestamp._nanoseconds;
 
     const storeObject = {
       shop_id,
       target_daily_revenue_spiff_timestamp: timeStampInNanoSeconds,
+      target_daily_revenue_spiff,
     };
 
     timeStamps.push(storeObject);
@@ -74,10 +75,34 @@ exports.storesDailyTargetRevenueSpiff = functions.https.onRequest(async (request
     }
   });
 
-  const testingMin = Math.min(...timeStamps.map((o) => o.target_daily_revenue_spiff_timestamp));
-  const theSelectedMin = timeStamps.find((o) => o.target_daily_revenue_spiff_timestamp === testingMin);
+  const filteredTimeStamps = timeStamps.filter((o) => o.target_daily_revenue_spiff === true);
+
+  const onlyTrueTimeStamps = filteredTimeStamps.map((o) => o.target_daily_revenue_spiff_timestamp);
+
+  //const testingMin = Math.min(...timeStamps.map((o) => o.target_daily_revenue_spiff_timestamp));
+  const testingMin = Math.min(...filteredTimeStamps.map((o) => o.target_daily_revenue_spiff_timestamp));
+  //const theSelectedMin = timeStamps.find((o) => o.target_daily_revenue_spiff_timestamp === testingMin);
+  const theSelectedMin = filteredTimeStamps.find((o) => o.target_daily_revenue_spiff_timestamp === testingMin);
   console.log('THIS IS THE FIRST ONE', theSelectedMin);
 
+  console.log('FILTERED TIME STAMPS ARRAY', filteredTimeStamps);
+  console.log('ONLY TRUE TIME STAMPS ARRAY', onlyTrueTimeStamps);
+  console.log('ALL TIME STAMPS ARRAY', timeStamps);
+
+  const winningStore = firestore.collection('stores').where('shop_id', '==', theSelectedMin.shop_id);
+  const storeThatWon = await winningStore.get();
+
+  storeThatWon.forEach(async (snapshot) => {
+    const { name } = snapshot.data();
+
+    const spiffsToUpdate = firestore.collection('spiff_names');
+    const spiffToUpdate = await spiffsToUpdate.where('name', '==', 'Stores Daily Revenue').get();
+    spiffToUpdate.forEach(async (snapshot) => {
+      snapshot.ref.update({ most_recent_winner: name });
+      snapshot.ref.update({ most_recent_winner_timestamp: FieldValue.serverTimestamp() });
+    });
+  });
+
   console.log('FROM THE END OF THE FUNCTION OUTSIDE THE STORES COLLECTION LOOP');
-  return response.json({ message: 'Successfully updated the daily target revenue spiff' });
+  return response.json({ message: 'Successfully updated the store daily target revenue spiff' });
 });

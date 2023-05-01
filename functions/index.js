@@ -12,9 +12,12 @@ const dailyEmployeeHours = require('./dailyEmployeeHours');
 const monthlyEmployeeHours = require('./monthlyEmployeeHours');
 const dailyTargetRevenueSpiff = require('./dailyTargetRevenueSpiff');
 const storeDailyTargetRevenueSpiff = require('./storeDailyTargetRevenueSpiff');
+const testingUpdateTrigger = require('./testingUpdateTrigger');
 
 // Create and deploy your first functions
 // https://firebase.google.com/docs/functions/get-started
+
+exports.testingUpdateTrigger = testingUpdateTrigger.checkUpdateOnField;
 
 //* Exporting the function to be called by the client that is being used to get the stores daily target revenue spiff.
 exports.storeDailyTargetRevenueSpiff = storeDailyTargetRevenueSpiff.storesDailyTargetRevenueSpiff;
