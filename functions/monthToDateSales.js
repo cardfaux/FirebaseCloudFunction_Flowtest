@@ -131,7 +131,7 @@ exports.monthToDateSales = functions.pubsub
               console.log('OUT OF TH IF STATEMENT nextTotalsArray', nextTotalsArray, `employee_id: ${employee_id}`);
               const nextArrayLength = nextTotalsArray.length;
               console.log('nextArrayLength OUT OF IF STATEMENT', nextArrayLength, `employee_id: ${employee_id}`);
-              return null;
+              //return null;
             }
           } catch (error) {
             console.log('ERROR FROM THE CATCH BLOCK IN THE PAGINATE', error, `employee_id: ${employee_id}`);
